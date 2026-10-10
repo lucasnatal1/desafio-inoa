@@ -42,3 +42,10 @@ dotnet publish stock-quote-alert.cs -c Release -o dist -p:PublishAot=false; .\di
 ```
 
 - , ou . depende da língua do seu Windows
+
+
+---
+
+## Onde usei IA
+- Pesquisas sobre bibliotecas e sintaxe do C# e .Net;
+- Resolver problema com a configuração do SMTP para testar o envio de email pela meu gmail;
