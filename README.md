@@ -46,6 +46,13 @@ dotnet publish stock-quote-alert.cs -c Release -o dist -p:PublishAot=false; .\di
 
 ---
 
+## Integração com BRAPI API
+- .env no gitignore por boas práticas, para testar a API responde mesmo sem autenticação para PETR4, MGLU3, VALE3 e ITUB4
+- Caso queira testar com outro ativo, gerar uma chave de API na BRAPI (https://brapi.dev)
+
+---
+
 ## Onde usei IA
 - Pesquisas sobre bibliotecas e sintaxe do C# e .Net;
-- Resolver problema com a configuração do SMTP para testar o envio de email pela meu gmail;
+- Resolução de um erro com o JsonSerializer;
+- Montagem do arquivo config.json com a configuração do SMTP para testar o envio de email pelo meu gmail;

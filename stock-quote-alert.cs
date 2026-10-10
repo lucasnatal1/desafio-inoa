@@ -8,7 +8,10 @@ using System.Net.Mail;
 
 class StockQuoteAlert
 {
-    static void Main(string[] args)
+    private static readonly HttpClient HttpClient = new HttpClient();
+    private static readonly TimeSpan TimeSpan = TimeSpan.FromSeconds(30);
+
+    static async Task Main(string[] args)
     {
         if (args.Length != 3)
         {
@@ -20,7 +23,11 @@ class StockQuoteAlert
         double sellPrice = double.Parse(args[1]);
         double buyPrice = double.Parse(args[2]);
 
-        Console.WriteLine($"Monitoring {stock} with sell price {sellPrice} and buy price {buyPrice}");
+        Console.WriteLine("========================================");
+        Console.WriteLine("   STOCK QUOTE ALERT   ");
+        Console.WriteLine("========================================\n");
+
+        Console.WriteLine($"Monitoring {stock} with sell price {sellPrice} and buy price {buyPrice} every {TimeSpan.Seconds}s");
 
         string configPath = ReadConfigurationPath();
         Console.WriteLine($"Using configuration file: {configPath}");
@@ -33,7 +40,97 @@ class StockQuoteAlert
         Console.WriteLine($"smtp ssl: {configurations.smtp.enableSsl}");
         Console.WriteLine($"smtp username: {configurations.smtp.username}");
 
-        SendEmail(configurations);
+        using CancellationTokenSource cts = new CancellationTokenSource();
+
+        Task watchStockValue = AsyncWatchStockValue(stock, sellPrice, buyPrice, cts.Token, configurations);
+
+        while (!cts.Token.IsCancellationRequested)
+        {
+            if (Console.KeyAvailable)
+            {
+                ConsoleKeyInfo keyInfo = Console.ReadKey(intercept: true);
+                if (keyInfo.Key == ConsoleKey.Escape)
+                {
+                    Console.WriteLine("\n[Parada solicitada pelo usuário.]");
+                    cts.Cancel();
+                }
+                await Task.Delay(100);
+            }
+        }
+
+        try
+        {
+            await watchStockValue;
+        }
+        catch (OperationCanceledException)
+        {
+            // token cancelled
+        }
+
+        Console.WriteLine("\nAplicativo finalizado com sucesso.");
+    }
+
+    private static async Task AsyncWatchStockValue(string stock, double sellPrice, double buyPrice, CancellationToken stoppingToken, Config configurations)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Consultando API para o stock {stock}...");
+
+                EnvReader.Load(".env");
+                string? brapiApiKey = Environment.GetEnvironmentVariable("BRAPI_API_KEY");
+                if (!string.IsNullOrEmpty(brapiApiKey))
+                {
+                    HttpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {brapiApiKey}");
+                }
+
+                HttpResponseMessage response = await HttpClient.GetAsync($"https://brapi.dev/api/v2/stocks/quote?symbols={stock}");
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    StockQuoteSuccessResponse stockQuoteResponse = JsonSerializer.Deserialize<StockQuoteSuccessResponse>(responseBody)!;
+                    await CheckValues(sellPrice, buyPrice, stockQuoteResponse, configurations, stock);
+                }
+                else
+                {
+                    StockQuoteErrorResponse stockQuoteResponse = JsonSerializer.Deserialize<StockQuoteErrorResponse>(responseBody)!;
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"Erro {stockQuoteResponse.code ?? ""} na API: {stockQuoteResponse.message}");
+                    Console.ResetColor();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // user stopped
+                break;
+            }
+            catch (Exception apiException)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Erro de conexão/inesperado: {apiException.Message}");
+                Console.ResetColor();
+            }
+
+            await Task.Delay(TimeSpan, stoppingToken);
+        }
+    }
+
+    private static async Task CheckValues(double sellPrice, double buyPrice, StockQuoteSuccessResponse stockInfo, Config configurations, string stock)
+    {
+        double currentPrice = stockInfo.results[0].data.regularMarketPrice;
+        Console.WriteLine(currentPrice);
+        if (currentPrice > sellPrice)
+        {
+            await SendEmailAsync(configurations, "sell", stock);
+            return;
+        }
+
+        if (currentPrice < buyPrice)
+        {
+            await SendEmailAsync(configurations, "buy", stock);
+        }
     }
 
     static string ReadConfigurationPath()
@@ -43,7 +140,8 @@ class StockQuoteAlert
             Console.WriteLine("Enter the path to the JSON configuration file. Type 'help' to see expected file.");
             string? configPath = Console.ReadLine()?.Trim();
 
-            if (configPath == "help") {
+            if (configPath == "help")
+            {
                 Console.WriteLine("File must have recipientEmail (string[]) and smtp ({host: string, port: int?, enableSsl: boolean?, username: string, password: string}) properties.");
                 continue;
             }
@@ -93,19 +191,22 @@ class StockQuoteAlert
         }
     }
 
-    static void SendEmail(Config configurations) {
+    static async Task SendEmailAsync(Config configurations, string type, string stock)
+    {
         try
         {
+            bool isSellType = type == "sell";
             using (MailMessage mail = new MailMessage())
             {
                 mail.From = new MailAddress(configurations.smtp.username);
-                mail.Subject = "Teste";
-                mail.Body = "Olá, este é um e-mail de teste enviado automaticamente via C# .NET.";
+                mail.Subject = isSellType ? "Alerta de venda de ações" : "Alerta de compra de ações";
+                mail.Body = isSellType ? $"A ação {stock} está valorizada e deve ser vendida." : $"A ação {stock} está desvalorizada e deve ser comprada.";
                 mail.IsBodyHtml = false;
 
-                // 2. Configurar o(s) destinatário(s)
-                foreach (string email in configurations.recipientEmail) {
-                    if (!string.IsNullOrWhiteSpace(email)) {
+                foreach (string email in configurations.recipientEmail)
+                {
+                    if (!string.IsNullOrWhiteSpace(email))
+                    {
                         mail.To.Add(email);
                     }
                 }
@@ -114,9 +215,9 @@ class StockQuoteAlert
                 {
                     smtp.Credentials = new NetworkCredential(configurations.smtp.username, configurations.smtp.password);
                     smtp.EnableSsl = configurations.smtp.enableSsl ?? true;
-                    smtp.Timeout = 20000;
+                    smtp.Timeout = 5000;
 
-                    smtp.Send(mail);
+                    await smtp.SendMailAsync(mail);
                     Console.WriteLine("E-mail enviado com sucesso!");
                 }
             }
@@ -124,6 +225,29 @@ class StockQuoteAlert
         catch (Exception ex)
         {
             Console.WriteLine($"Erro ao enviar e-mail: {ex.Message}");
+        }
+    }
+}
+
+class EnvReader
+{
+    public static void Load(string filePath)
+    {
+        if (!File.Exists(filePath))
+            throw new FileNotFoundException($"The file '{filePath}' does not exist.");
+
+        foreach (var line in File.ReadAllLines(filePath))
+        {
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
+                continue; // Skip empty lines and comments
+
+            var parts = line.Split('=', 2);
+            if (parts.Length != 2)
+                continue; // Skip lines that are not key-value pairs
+
+            var key = parts[0].Trim();
+            var value = parts[1].Trim();
+            Environment.SetEnvironmentVariable(key, value);
         }
     }
 }
@@ -141,4 +265,49 @@ class Smtp
     public bool? enableSsl { get; set; }
     public required string username { get; set; }
     public required string password { get; set; }
+}
+
+//reference: https://brapi.dev/docs/acoes/cotacao
+class StockQuoteSuccessResponse
+{
+    public required StockQuoteSeries[] results { get; set; }
+    public required string requestedAt { get; set; } //ISO 8601
+    public required int took { get; set; }
+}
+
+class StockQuoteSeries
+{
+    public required string requestedSymbol { get; set; }
+    public required string symbol { get; set; }
+    public required bool changed { get; set; }
+    public required StockQuoteSnapshot data { get; set; }
+}
+
+class StockQuoteSnapshot
+{
+    public required string shortName { get; set; }
+    public required string longName { get; set; }
+    public required string currency { get; set; }
+    public required double regularMarketPrice { get; set; }
+    public required double regularMarketDayHigh { get; set; }
+    public required double regularMarketDayLow { get; set; }
+    public required string regularMarketDayRange { get; set; }
+    public required double regularMarketChange { get; set; }
+    public required double regularMarketChangePercent { get; set; }
+    public required string regularMarketTime { get; set; } //ISO 8601
+    public required long marketCap { get; set; }
+    public required long regularMarketVolume { get; set; }
+    public required double regularMarketPreviousClose { get; set; }
+    public required double regularMarketOpen { get; set; }
+    public required string fiftyTwoWeekRange { get; set; }
+    public required double fiftyTwoWeekLow { get; set; }
+    public required double fiftyTwoWeekHigh { get; set; }
+    public required string logourl { get; set; }
+}
+
+class StockQuoteErrorResponse
+{
+    public required bool error { get; set; }
+    public required string message { get; set; }
+    public string? code { get; set; }
 }
