@@ -6,3 +6,6 @@
 
 # SMTP credentials
 config.json
+
+# local env files
+.env
