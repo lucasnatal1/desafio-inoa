@@ -27,18 +27,18 @@ class StockQuoteAlert
         Console.WriteLine("   STOCK QUOTE ALERT   ");
         Console.WriteLine("========================================\n");
 
-        Console.WriteLine($"Monitoring {stock} with sell price {sellPrice} and buy price {buyPrice} every {TimeSpan.Seconds}s");
+        Console.WriteLine($"Monitoring {stock} with sell price {sellPrice} and buy price {buyPrice} every {TimeSpan.Seconds}s\n");
 
         string configPath = ReadConfigurationPath();
-        Console.WriteLine($"Using configuration file: {configPath}");
+        Console.WriteLine($"Using configuration file: {configPath}\n");
 
         Config configurations = ReadConfiguration(configPath);
 
-        Console.WriteLine($"recipientEmail: {string.Join(", ", configurations.recipientEmail)}");
+/*         Console.WriteLine($"recipientEmail: {string.Join(", ", configurations.recipientEmail)}");
         Console.WriteLine($"smtp host: {configurations.smtp.host}");
         Console.WriteLine($"smtp port: {configurations.smtp.port}");
         Console.WriteLine($"smtp ssl: {configurations.smtp.enableSsl}");
-        Console.WriteLine($"smtp username: {configurations.smtp.username}");
+        Console.WriteLine($"smtp username: {configurations.smtp.username}"); */
 
         using CancellationTokenSource cts = new CancellationTokenSource();
 
@@ -137,12 +137,23 @@ class StockQuoteAlert
     {
         while (true)
         {
-            Console.WriteLine("Enter the path to the JSON configuration file. Type 'help' to see expected file.");
+            Console.WriteLine("Enter the path to the JSON configuration file. Type 'help' to see expected file.\n");
             string? configPath = Console.ReadLine()?.Trim();
 
             if (configPath == "help")
             {
-                Console.WriteLine("File must have recipientEmail (string[]) and smtp ({host: string, port: int?, enableSsl: boolean?, username: string, password: string}) properties.");
+                Console.WriteLine("\n =========== FILE EXAMPLE ===========");
+                Console.WriteLine("{");
+                Console.WriteLine("   recipientEmail: string[],");
+                Console.WriteLine("   smtp: {");
+                Console.WriteLine("      host: string");
+                Console.WriteLine("      port: int?");
+                Console.WriteLine("      enableSsl: bool?");
+                Console.WriteLine("      username: string");
+                Console.WriteLine("      password: string");
+                Console.WriteLine("   }");
+                Console.WriteLine("}");
+                Console.WriteLine("=======================================\n");
                 continue;
             }
 
@@ -154,13 +165,13 @@ class StockQuoteAlert
 
             if (!configPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("Configuration file must be a JSON file.");
+                Console.WriteLine("\nConfiguration file must be a JSON file.");
                 continue;
             }
 
             if (!File.Exists(configPath))
             {
-                Console.WriteLine($"Configuration file not found: {configPath}");
+                Console.WriteLine($"\nConfiguration file not found: {configPath}");
                 continue;
             }
 
@@ -236,17 +247,17 @@ class EnvReader
         if (!File.Exists(filePath))
             throw new FileNotFoundException($"The file '{filePath}' does not exist.");
 
-        foreach (var line in File.ReadAllLines(filePath))
+        foreach (string line in File.ReadAllLines(filePath))
         {
             if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
                 continue; // Skip empty lines and comments
 
-            var parts = line.Split('=', 2);
+            string[] parts = line.Split('=', 2);
             if (parts.Length != 2)
                 continue; // Skip lines that are not key-value pairs
 
-            var key = parts[0].Trim();
-            var value = parts[1].Trim();
+            string key = parts[0].Trim();
+            string value = parts[1].Trim();
             Environment.SetEnvironmentVariable(key, value);
         }
     }
