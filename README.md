@@ -32,13 +32,13 @@ Quando o preço for menor que o param3, um e-mail deve ser disparado aconselhand
 ## Para rodar o programa
 
 ```
-dotnet run stock-quote-alert.cs PETR4 22,67 22,59
+dotnet run --project stock-quote-alert PETR4 22,67 22,59
 ```
 
 ou
 
 ```
-dotnet publish stock-quote-alert.cs -c Release -o dist -p:PublishAot=false; .\dist\stock-quote-alert.exe PETR4 22,67 22,59
+dotnet publish stock-quote-alert -c Release -o dist; .\dist\stock-quote-alert.exe PETR4 22,67 22,59
 ```
 
 - , ou . depende da língua do seu Windows
@@ -49,6 +49,12 @@ dotnet publish stock-quote-alert.cs -c Release -o dist -p:PublishAot=false; .\di
 ## Integração com BRAPI API
 - .env no gitignore por boas práticas, para testar a API responde mesmo sem autenticação para PETR4, MGLU3, VALE3 e ITUB4
 - Caso queira testar com outro ativo, gerar uma chave de API na BRAPI (https://brapi.dev)
+
+---
+
+## Branches
+- main com o código final oficial
+- outras com o código do problema que cada uma resolveu, para facilitar acompanhar a evolução do código
 
 ---
 

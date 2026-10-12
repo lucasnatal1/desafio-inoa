@@ -2,7 +2,9 @@
 .vscode/*
 
 # Compiled output
-/dist
+bin/
+obj/
+dist/
 
 # SMTP credentials
 config.json
