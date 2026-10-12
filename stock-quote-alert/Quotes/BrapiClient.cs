@@ -9,7 +9,7 @@ static class BrapiClient
 
     public static async Task<StockQuoteResponse> GetStockPriceAsync(string stock, CancellationToken stoppingToken)
     {
-        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Consultando API para o stock {stock}...");
+        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Fetching quote for {stock}...");
 
         string url = $"https://brapi.dev/api/v2/stocks/quote?symbols={stock}";
         HttpResponseMessage response = await _httpClient.GetAsync(url, stoppingToken);
