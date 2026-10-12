@@ -17,7 +17,7 @@ static class StockQuoteAlert
         catch (Exception ex)
         {
             Console.WriteLine($"\n{ex.Message}\n");
-            Console.WriteLine("Aplicativo finalizado com erro.");
+            Console.WriteLine("Application stopped with an error.");
             return;
         }
 
@@ -50,7 +50,7 @@ static class StockQuoteAlert
                 ConsoleKeyInfo keyInfo = Console.ReadKey();
                 if (keyInfo.Key == ConsoleKey.Escape)
                 {
-                    Console.WriteLine("\nParada solicitada pelo usuário.");
+                    Console.WriteLine("\nStop requested by the user.");
                     cts.Cancel();
                 }
             }
@@ -67,7 +67,7 @@ static class StockQuoteAlert
             // token cancelled
         }
 
-        Console.WriteLine("\nAplicativo finalizado com sucesso.");
+        Console.WriteLine("\nApplication stopped successfully.");
     }
 
     static async Task ValidateParams(string[] args)

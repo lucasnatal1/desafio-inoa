@@ -16,27 +16,29 @@ static class QuoteMonitor
         CancellationToken stoppingToken
     )
     {
+        AlertKind lastSeenAlert = AlertKind.None;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-
                 StockQuoteResponse stockQuote = await BrapiClient.GetStockPriceAsync(stock, stoppingToken);
 
                 if (stockQuote.Success is not null)
                 {
                     double currentPrice = stockQuote.Success.results[0].data.regularMarketPrice;
-                    AlertKind alert = Alerts.AlertDecision.MakeDecision(sellPrice, buyPrice, currentPrice);
+                    AlertKind alert = AlertDecision.MakeDecision(sellPrice, buyPrice, currentPrice);
 
-                    if (alert is not AlertKind.None)
+                    if (alert is not AlertKind.None && lastSeenAlert != alert)
                     {
-                        await EmailAlertSender.SendEmailAsync(configuration, alert, stock);
+                        await EmailAlertSender.SendEmailAsync(configuration, alert, stock, currentPrice);
                     }
+
+                    lastSeenAlert = alert;
                 }
                 else
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Erro {stockQuote.Error!.code ?? ""} na API: {stockQuote.Error!.message}");
+                    Console.WriteLine($"API error {stockQuote.Error!.code ?? ""}: {stockQuote.Error!.message}");
                     Console.ResetColor();
                 }
             }
@@ -48,7 +50,7 @@ static class QuoteMonitor
             catch (Exception apiException)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Erro de conexão/inesperado: {apiException.Message}");
+                Console.WriteLine($"Unexpected connection error: {apiException.Message}");
                 Console.ResetColor();
             }
 
