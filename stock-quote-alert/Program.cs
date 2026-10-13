@@ -1,57 +1,45 @@
-using Configuration;
-using Monitoring;
 using Quotes;
-
 namespace StockQuoteAlert;
 
-static class StockQuoteAlert
+static class Program
 {
-    private static readonly TimeSpan TimeSpan = TimeSpan.FromSeconds(30);
-
     static async Task Main(string[] args)
     {
-        try
+        if (!TryParseArgs(args, out string stock, out double sellPrice, out double buyPrice, out string? error))
         {
-            await ValidateParams(args);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"\n{ex.Message}\n");
+            Console.WriteLine($"\n{error}\n");
             Console.WriteLine("Application stopped with an error.");
             return;
         }
 
-        string stock = args[0].ToUpper();
-        double sellPrice = double.Parse(args[1]);
-        double buyPrice = double.Parse(args[2]);
-
-        Console.WriteLine("========================================");
-        Console.WriteLine("   STOCK QUOTE ALERT   ");
-        Console.WriteLine("========================================\n");
-
-        Console.WriteLine($"Monitoring {stock} with sell price {sellPrice} and buy price {buyPrice} every {TimeSpan.Seconds}s\n");
-
-        string configPath = ConfigurationLoader.ReadConfigurationPath();
-        Console.WriteLine($"Using configuration file: {configPath}\n");
-
-        Config configurations = ConfigurationLoader.ReadConfiguration(configPath);
+        try
+        {
+            await TryValidateStockSymbol(stock);
+        }
+        catch (Exception argException)
+        {
+            Console.WriteLine($"\n{argException.Message}\n");
+            Console.WriteLine("Application stopped with an error.");
+            return;
+        }
 
         using CancellationTokenSource cts = new();
-        EnvReader.Load(".env");
-        string? brapiApiKey = Environment.GetEnvironmentVariable("BRAPI_API_KEY");
-        BrapiClient.UseApiKey(brapiApiKey);
 
-        Task monitorStockQuote = QuoteMonitor.MonitorStockQuote(stock, sellPrice, buyPrice, configurations, TimeSpan, cts.Token);
+        Task appTask = StockQuoteAlertApp.RunAsync(stock, sellPrice, buyPrice, cts.Token);
 
-        while (!cts.Token.IsCancellationRequested)
+        while (!cts.Token.IsCancellationRequested && !appTask.IsCompleted)
         {
             if (Console.KeyAvailable)
             {
-                ConsoleKeyInfo keyInfo = Console.ReadKey();
+                ConsoleKeyInfo keyInfo = Console.ReadKey(intercept: true);
                 if (keyInfo.Key == ConsoleKey.Escape)
                 {
                     Console.WriteLine("\nStop requested by the user.");
                     cts.Cancel();
+                }
+                else if (keyInfo.Key == ConsoleKey.H)
+                {
+                    StockQuoteAlertApp.PrintStatus();
                 }
             }
 
@@ -60,34 +48,64 @@ static class StockQuoteAlert
 
         try
         {
-            await monitorStockQuote;
+            await appTask;
         }
         catch (OperationCanceledException)
         {
             // token cancelled
         }
+        catch (Exception)
+        {
+            return;
+        }
 
         Console.WriteLine("\nApplication stopped successfully.");
     }
 
-    static async Task ValidateParams(string[] args)
+    static bool TryParseArgs(
+        string[] args,
+        out string stock,
+        out double sellPrice,
+        out double buyPrice,
+        out string? error)
     {
+        stock = string.Empty;
+        sellPrice = 0;
+        buyPrice = 0;
+        error = null;
+
         if (args.Length != 3)
         {
-            throw new ArgumentException("Usage: stock-quote-alert.exe <stock> <sell-price> <buy-price>");
+            error = "Usage: stock-quote-alert.exe <stock> <sell-price> <buy-price>";
+            return false;
         }
 
-        string stock = args[0].ToUpper();
-        double sellPrice = double.Parse(args[1]);
-        double buyPrice = double.Parse(args[2]);
+        stock = args[0].ToUpperInvariant();
+
+        if (!double.TryParse(args[1], out sellPrice) || !double.TryParse(args[2], out buyPrice))
+        {
+            error = "Usage: <sell-price> and <buy-price> must be valid numbers";
+            return false;
+        }
 
         if (sellPrice <= buyPrice)
         {
-            throw new ArgumentException("Usage: <sell-price> must be bigger than <buy-price>");
+            error = "Usage: <sell-price> must be bigger than <buy-price>";
+            return false;
         }
 
-        bool isStockValid = await BrapiClient.CheckStockSymbol(stock);
-        if (!isStockValid)
+        return true;
+    }
+
+    static async Task TryValidateStockSymbol(string stock)
+    {
+        try
+        {
+            bool isStockValid = await BrapiClient.IsActiveStockSymbol(stock);
+            if (!isStockValid)
+                throw new ArgumentException("Usage: <stock> must be an active stock symbol");
+        }
+        catch
         {
             throw new ArgumentException("Usage: <stock> must be an active stock symbol");
         }

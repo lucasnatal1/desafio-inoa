@@ -13,10 +13,11 @@ static class QuoteMonitor
         double buyPrice,
         Config configuration,
         TimeSpan timeSpan,
+        MonitoringStatus status,
         CancellationToken stoppingToken
     )
     {
-        AlertKind lastSeenAlert = AlertKind.None;
+        Console.WriteLine("Press H for status. Press Esc to stop.\n");
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -28,12 +29,12 @@ static class QuoteMonitor
                     double currentPrice = stockQuote.Success.results[0].data.regularMarketPrice;
                     AlertKind alert = AlertDecision.MakeDecision(sellPrice, buyPrice, currentPrice);
 
-                    if (alert is not AlertKind.None && lastSeenAlert != alert)
+                    if (alert is not AlertKind.None && status.LatestAlert != alert)
                     {
                         await EmailAlertSender.SendEmailAsync(configuration, alert, stock, currentPrice);
                     }
 
-                    lastSeenAlert = alert;
+                    status.Update(currentPrice, alert);
                 }
                 else
                 {

@@ -18,7 +18,7 @@ static class ConfigurationLoader
             }
             catch (Exception jsonException)
             {
-                Console.WriteLine($"Exception reading configuration: {jsonException}");
+                Console.WriteLine($"Exception reading configuration: {jsonException.Message}\n");
             }
 
             Console.WriteLine("Configuration file is empty or invalid.");
