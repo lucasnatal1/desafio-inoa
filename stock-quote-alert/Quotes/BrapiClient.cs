@@ -26,9 +26,10 @@ static class BrapiClient
             return new StockQuoteResponse() { Error = stockQuoteResponse };
 
         }
+
     }
 
-    public static async Task<bool> CheckStockSymbol(string symbol)
+    public static async Task<bool> IsActiveStockSymbol(string symbol)
     {
         string url = $"https://brapi.dev/api/v2/tickers?search={symbol}";
         HttpResponseMessage response = await _httpClient.GetAsync(url);

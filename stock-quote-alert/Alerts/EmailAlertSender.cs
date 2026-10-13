@@ -31,7 +31,7 @@ static class EmailAlertSender
             using SmtpClient Smtp = new(configurations.Smtp.Host, configurations.Smtp.Port ?? 587);
             Smtp.Credentials = new NetworkCredential(configurations.Smtp.Username, configurations.Smtp.Password);
             Smtp.EnableSsl = configurations.Smtp.EnableSsl ?? true;
-            Smtp.Timeout = 5000;
+            Smtp.Timeout = 15000;
 
             await Smtp.SendMailAsync(mail);
             Console.WriteLine("Email sent successfully!");
