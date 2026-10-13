@@ -27,11 +27,11 @@ sealed class MonitoringStatus
     {
         Console.WriteLine("\n--- HELP ---");
         Console.WriteLine($"Stock: {Stock}");
-        Console.WriteLine($"Sell limit: {SellPrice}");
-        Console.WriteLine($"Buy limit: {BuyPrice}");
+        Console.WriteLine($"Sell limit: R${SellPrice:0.00}");
+        Console.WriteLine($"Buy limit: R${BuyPrice:0.00}");
 
         if (LatestQuote.HasValue)
-            Console.WriteLine($"Latest quote: {LatestQuote.Value}");
+            Console.WriteLine($"Latest quote: R${LatestQuote.Value:0.00}");
         else
             Console.WriteLine("Latest quote: not available yet");
 
